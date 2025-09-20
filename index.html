@@ -13,6 +13,16 @@
     h2 { color: #38bdf8; margin-bottom: 15px; text-align: center; }
     h3 { margin-bottom: 10px; color: #38bdf8; }
 
+    .stats-box {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 20px;
+      padding: 10px;
+      background: rgba(30,41,59,0.85);
+      border-radius: 10px;
+    }
+    .stat { font-size: 16px; font-weight: bold; }
+
     .container {
       display: grid;
       grid-template-columns: 1fr 2fr;
@@ -60,6 +70,7 @@
 
     .blocked { color: red; font-weight: bold; }
     .active { color: lime; font-weight: bold; }
+    .offline { color: orange; font-weight: bold; }
 
     /* Responsive for Mobile */
     @media (max-width: 768px) {
@@ -95,6 +106,14 @@
 <body>
   <h2>Advanced License Management Panel</h2>
 
+  <!-- Stats Box -->
+  <div class="stats-box">
+    <div class="stat">Total: <span id="totalCount">0</span></div>
+    <div class="stat">Active: <span id="activeCount">0</span></div>
+    <div class="stat">Blocked: <span id="blockedCount">0</span></div>
+    <div class="stat">Offline: <span id="offlineCount">0</span></div>
+  </div>
+
   <div class="container">
     <!-- Left Side Form -->
     <div class="form-box">
@@ -106,6 +125,7 @@
       <select id="statusSelect">
         <option value="active">Active</option>
         <option value="blocked">Blocked</option>
+        <option value="offline">Offline</option>
       </select>
       <button onclick="saveLicense()">Save License</button>
     </div>
@@ -148,6 +168,11 @@
     const licenseTable = document.getElementById("licenseTable");
     const licensesRef = ref(db, "licenses");
 
+    const totalCount = document.getElementById("totalCount");
+    const activeCount = document.getElementById("activeCount");
+    const blockedCount = document.getElementById("blockedCount");
+    const offlineCount = document.getElementById("offlineCount");
+
     const blockSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQgAAAAA");
 
     // Save License
@@ -187,27 +212,43 @@
       document.getElementById("statusSelect").value = "active";
     };
 
-    // Load Licenses
+    // Load Licenses (newest on top + stats)
     onValue(licensesRef, (snapshot) => {
       licenseTable.innerHTML = "";
+      let total = 0, active = 0, blocked = 0, offline = 0;
+
+      let rows = [];
       snapshot.forEach((childSnap) => {
         const data = childSnap.val();
         const id = childSnap.key;
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td data-label="User Name">${data.userName || "-"}</td>
-          <td data-label="License Key">${data.licenseKey}</td>
-          <td data-label="Status" class="${data.status === "blocked" ? "blocked" : "active"}">${data.status}</td>
-          <td data-label="Device Limit">${data.deviceLimit}</td>
-          <td data-label="Active Devices">${data.activeDevices || 0}</td>
-          <td data-label="Actions">
-            <button onclick="editLicense('${id}')">Edit</button>
-            <button onclick="toggleStatus('${id}', '${data.status}')">${data.status === "blocked" ? "Unblock" : "Block"}</button>
-            <button onclick="deleteLicense('${id}')">Delete</button>
-          </td>
+        total++;
+
+        if(data.status === "active") active++;
+        else if(data.status === "blocked") blocked++;
+        else if(data.status === "offline") offline++;
+
+        const row = `
+          <tr>
+            <td data-label="User Name">${data.userName || "-"}</td>
+            <td data-label="License Key">${data.licenseKey}</td>
+            <td data-label="Status" class="${data.status}">${data.status}</td>
+            <td data-label="Device Limit">${data.deviceLimit}</td>
+            <td data-label="Active Devices">${data.activeDevices || 0}</td>
+            <td data-label="Actions">
+              <button onclick="editLicense('${id}')">Edit</button>
+              <button onclick="toggleStatus('${id}', '${data.status}')">${data.status === "blocked" ? "Unblock" : "Block"}</button>
+              <button onclick="deleteLicense('${id}')">Delete</button>
+            </td>
+          </tr>
         `;
-        licenseTable.appendChild(row);
+        rows.unshift(row); // push to top
       });
+
+      licenseTable.innerHTML = rows.join("");
+      totalCount.textContent = total;
+      activeCount.textContent = active;
+      blockedCount.textContent = blocked;
+      offlineCount.textContent = offline;
     });
 
     // Edit License
